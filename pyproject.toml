@@ -1,0 +1,17 @@
+[project]
+name = "data-collector"
+version = "0.1.0"
+description = "A web scraper application for collecting and managing documents from various sources"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.104.1",
+    "jinja2==3.1.2",
+    "playwright>=1.58.0",
+    "python-multipart==0.0.6",
+    "uvicorn==0.24.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+]

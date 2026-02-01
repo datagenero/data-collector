@@ -1,0 +1,203 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    line-height: 1.6;
+}
+
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+/* Header */
+header {
+    border-bottom: 1px solid #e5e5e5;
+    padding: 1.5rem 0;
+    margin-bottom: 3rem;
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+header h1 a {
+    color: #1a1a1a;
+    text-decoration: none;
+}
+
+header h1 a:hover {
+    color: #404040;
+}
+
+/* Page header */
+.page-header {
+    margin-bottom: 2.5rem;
+}
+
+.page-header h2 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #1a1a1a;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 1rem;
+}
+
+.back-link {
+    display: inline-block;
+    color: #666;
+    text-decoration: none;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.back-link:hover {
+    color: #1a1a1a;
+}
+
+/* Cards grid */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.card {
+    display: block;
+    padding: 1.5rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.card:hover {
+    border-color: #1a1a1a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #1a1a1a;
+}
+
+.card p {
+    color: #666;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+.card-arrow {
+    position: absolute;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    font-size: 1.25rem;
+    color: #999;
+    transition: transform 0.2s ease;
+}
+
+.card:hover .card-arrow {
+    transform: translateX(4px);
+    color: #1a1a1a;
+}
+
+/* Documents section */
+.documents-section {
+    margin-bottom: 3rem;
+}
+
+.documents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.document-item {
+    padding: 1.5rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+}
+
+.document-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #1a1a1a;
+}
+
+.document-item p {
+    color: #666;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+.document-meta {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.875rem;
+    color: #999;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #666;
+}
+
+.empty-state p {
+    margin-bottom: 0.5rem;
+}
+
+.empty-state .muted {
+    color: #999;
+    font-size: 0.95rem;
+}
+
+.empty-state a {
+    color: #1a1a1a;
+    text-decoration: underline;
+}
+
+.empty-state a:hover {
+    text-decoration: none;
+}
+
+/* Footer */
+footer {
+    border-top: 1px solid #e5e5e5;
+    padding: 2rem 0;
+    margin-top: 4rem;
+}
+
+footer p {
+    color: #999;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+/* Main content min height */
+main {
+    min-height: calc(100vh - 250px);
+}

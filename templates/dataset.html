@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset.name }} - Data Collector{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="/" class="back-link">← Back to datasets</a>
+    <h2>{{ dataset.name }}</h2>
+    <p class="subtitle">{{ dataset.description }}</p>
+</div>
+
+<div class="documents-section">
+    {% if documents %}
+    <div class="documents-list">
+        {% for document in documents %}
+        <div class="document-item">
+            <h3>{{ document.title }}</h3>
+            <p>{{ document.summary }}</p>
+            <div class="document-meta">
+                <span>Source: {{ document.source }}</span>
+                <span>Date: {{ document.date }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No documents available yet.</p>
+        <p class="muted">Documents will appear here once scraping begins.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

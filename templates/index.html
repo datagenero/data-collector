@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Data Collector - Home{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Datasets</h2>
+    <p class="subtitle">Select a dataset to view its documents</p>
+</div>
+
+<div class="cards-grid">
+    {% for dataset in datasets %}
+    <a href="/dataset/{{ dataset.id }}" class="card">
+        <h3>{{ dataset.name }}</h3>
+        <p>{{ dataset.description }}</p>
+        <span class="card-arrow">→</span>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}
