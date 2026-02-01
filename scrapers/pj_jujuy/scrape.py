@@ -8,12 +8,12 @@ BASE_URL = "https://jurisprudencia.justiciajujuy.gov.ar"
 
 
 async def scrape_document(browser, url, href, output_dir, semaphore):
-    """Scrape a single document and save its content."""
+    """Scrape a single document and save its content. Returns True if successful."""
     # Extract ID from href (e.g., documento-sentencia?id=507835 -> 507835)
     match = re.search(r"id=(\d+)", href)
     if not match:
         print(f"Could not extract ID from href: {href}")
-        return
+        return False
 
     doc_id = match.group(1)
     output_file = output_dir / f"{doc_id}.html"
@@ -32,10 +32,11 @@ async def scrape_document(browser, url, href, output_dir, semaphore):
 
             # Save to file
             output_file.write_text(content, encoding="utf-8")
-            documents_saved += 1
+            return True
 
         except Exception as e:
             print(f"Error scraping {doc_id}: {e}")
+            return False
         finally:
             await page.close()
 
@@ -99,11 +100,18 @@ async def download_documents(url, hrefs, output_dir, max_concurrent=10):
         tasks = [
             scrape_document(browser, url, href, output_dir, semaphore) for href in hrefs
         ]
-        await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
 
         await browser.close()
 
-    print("Scraping completed!")
+    # Count successful downloads
+    successful_downloads = sum(1 for result in results if result)
+    failed_downloads = len(results) - successful_downloads
+
+    print(f"\nScraping completed!")
+    print(f"Successfully downloaded: {successful_downloads}/{len(hrefs)} documents")
+    if failed_downloads > 0:
+        print(f"Failed: {failed_downloads} documents")
 
 
 def filter_new_documents(hrefs, output_dir, overwrite=False):
