@@ -18,6 +18,19 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
+2. Configure environment (optional):
+```bash
+cp .env.example .env
+# Edit .env to customize DATABASE_PATH
+```
+
+3. Initialize the database:
+```bash
+python scripts/init_db.py
+# Or with custom path:
+python scripts/init_db.py --db-path /path/to/database.db
+```
+
 ### Run the app
 
 If you prefer using pip:
