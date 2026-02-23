@@ -5,6 +5,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from collector_api.router import router as collector_router
+
+# Import scrapers to register them
+import scrapers.mock_scraper  # noqa: F401
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -16,6 +21,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Data Collector")
+
+# Include API router
+app.include_router(collector_router)
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
