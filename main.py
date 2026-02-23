@@ -9,6 +9,8 @@ from collector_api.router import router as collector_router
 
 # Import scrapers to register them
 import scrapers.mock_scraper  # noqa: F401
+import scrapers.pj_jujuy  # noqa: F401
+import scrapers.saij  # noqa: F401
 
 # Load environment variables from .env file
 load_dotenv()
