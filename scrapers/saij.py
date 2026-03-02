@@ -103,7 +103,6 @@ class SAIJScraper(Scraper):
 
     async def list_documents(
         self,
-        page_size: int = 20,
         page_limit: Optional[int] = None
     ) -> List[ScrapedDocument]:
         """
@@ -112,6 +111,7 @@ class SAIJScraper(Scraper):
         Migrated from collect_hrefs() and main() in the original script.
         This method navigates through pagination and processes detail pages to get metadata.
         """
+        logger.info(f"saij: starting scraper (page_limit={page_limit})")
         all_documents = []
         max_pages = page_limit if page_limit else None
 
@@ -135,6 +135,7 @@ class SAIJScraper(Scraper):
             current_page = 0
             while max_pages is None or current_page < max_pages:
                 current_page += 1
+                logger.info(f"saij: processing page {current_page}")
 
                 # Get all result links on this page
                 links = page.locator("div.resultado-busqueda li.result-item a")

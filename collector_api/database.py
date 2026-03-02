@@ -2,8 +2,12 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
+from dotenv import load_dotenv
 
 from collector_api.models import Base
+
+# Load environment variables first
+load_dotenv()
 
 # Get database path from environment variable or use default
 DATABASE_PATH = os.getenv("DATABASE_PATH", "./data_collector.db")

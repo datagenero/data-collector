@@ -28,13 +28,14 @@ class JujuyScraper(Scraper):
         return "https://jurisprudencia.justiciajujuy.gov.ar"
 
     async def list_documents(
-        self, page_size: int = 10, page_limit: Optional[int] = None
+        self, page_limit: Optional[int] = None
     ) -> List[ScrapedDocument]:
         """
         Collect all document hrefs from the listing pages.
 
         Migrated from collect_hrefs() in the original script.
         """
+        logger.info(f"pj_jujuy: starting scraper (page_limit={page_limit})")
         all_documents = []
         max_pages = page_limit if page_limit else 5
 
@@ -48,6 +49,7 @@ class JujuyScraper(Scraper):
 
             # Iterate through pages
             for page_num in range(1, max_pages + 1):
+                logger.info(f"pj_jujuy: processing page {page_num}")
                 # Get all document links on current page
                 table = page.locator("#print_list tbody")
                 links = table.locator('a[title="Ver Detalle"]')

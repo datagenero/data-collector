@@ -21,16 +21,6 @@ class Dataset(Base):
         return f"Dataset(id={self.id}, name={self.name})"
 
 
-class Scraper(Base):
-    __tablename__ = "scrapers"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-
-    def __repr__(self) -> str:
-        return f"Scraper(id={self.id}, name={self.name})"
-
-
 class Document(Base):
     __tablename__ = "documents"
 

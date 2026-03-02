@@ -51,14 +51,12 @@ class Scraper(ABC):
     @abstractmethod
     async def list_documents(
         self,
-        page_size: int = 20,
         page_limit: Optional[int] = None
     ) -> List[ScrapedDocument]:
         """
         Discover and list available documents from the source.
 
         Args:
-            page_size: Number of documents per page
             page_limit: Maximum number of pages to scrape (None for all)
 
         Returns:
