@@ -12,7 +12,7 @@ from typing import List, Optional
 from pathlib import Path
 import httpx
 from playwright.async_api import async_playwright
-from scrapers.scraper import Scraper, ScrapedDocument
+from scrapers.scraper import Scraper, ScrapedDocument, DownloadStatus, DownloadResult
 from scrapers import ScraperRegistry
 
 logger = logging.getLogger(__name__)
@@ -105,8 +105,7 @@ class SAIJScraper(Scraper):
             await page.close()
 
     async def list_documents(
-        self,
-        page_limit: Optional[int] = None
+        self, page_limit: Optional[int] = None
     ) -> List[ScrapedDocument]:
         """
         Collect all document metadata from the listing pages.
@@ -128,7 +127,9 @@ class SAIJScraper(Scraper):
             # Select "Fallo" in the tipoDocumento dropdown
             select_locator = page.locator("#tipoDocumento")
             await select_locator.select_option(label="Fallo")
-            await page.locator("#btn-search-fallo").wait_for(state="visible", timeout=10000)
+            await page.locator("#btn-search-fallo").wait_for(
+                state="visible", timeout=10000
+            )
 
             # Click the search button
             await page.click("#btn-search-fallo")
@@ -153,9 +154,10 @@ class SAIJScraper(Scraper):
 
                 # Process all hrefs on this page in parallel to get detailed metadata
                 import asyncio
+
                 page_results = await asyncio.gather(
                     *(self._process_detail_page(browser, href) for href in page_hrefs),
-                    return_exceptions=True
+                    return_exceptions=True,
                 )
 
                 # Convert to ScrapedDocument objects, filtering out failed results
@@ -163,7 +165,9 @@ class SAIJScraper(Scraper):
                     # Skip None results (failed processing) and exceptions
                     if result is None or isinstance(result, Exception):
                         if isinstance(result, Exception):
-                            logger.error(f"saij: exception in detail page processing: {result}")
+                            logger.error(
+                                f"saij: exception in detail page processing: {result}"
+                            )
                         continue
                     ruling_id = self._ruling_id(result["title"])
                     doc = ScrapedDocument(
@@ -173,11 +177,12 @@ class SAIJScraper(Scraper):
                         metadata={
                             "sumario": result["sumario"],
                             "full_text_links": result["full_text_links"],
-                            "page": current_page
+                            "page": current_page,
                         },
                         document_urls=[
-                            f"{self.base_url}{link}" for link in result["full_text_links"]
-                        ]
+                            f"{self.base_url}{link}"
+                            for link in result["full_text_links"]
+                        ],
                     )
                     all_documents.append(doc)
 
@@ -196,42 +201,63 @@ class SAIJScraper(Scraper):
         return all_documents
 
     async def download_document(
-        self,
-        document: ScrapedDocument,
-        output_dir: Path
-    ) -> bool:
+        self, document: ScrapedDocument, output_dir: Path
+    ) -> DownloadResult:
         """
         Download all files for a specific document and save metadata.
 
         Migrated from download_files() and _download_one() in the original script.
         """
         ruling_id = document.document_id
+        meta_path = output_dir / f"{ruling_id}.json"
+
+        # Check if metadata file already exists (indicates document was already downloaded)
+        if self.file_exists(output_dir, f"{ruling_id}.json"):
+            return DownloadResult(status=DownloadStatus.SKIP)
 
         # Save metadata first
-        meta_path = output_dir / f"{ruling_id}.json"
-        if not meta_path.exists():
-            with open(meta_path, "w", encoding="utf-8") as mf:
-                json.dump({
-                    "href": document.source_url,
-                    "title": document.title,
-                    "sumario": document.metadata.get("sumario", ""),
-                    "full_text_links": document.metadata.get("full_text_links", [])
-                }, mf, ensure_ascii=False, indent=2)
+        try:
+            await self.store_file(
+                json.dumps(
+                    {
+                        "href": document.source_url,
+                        "title": document.title,
+                        "sumario": document.metadata.get("sumario", ""),
+                        "full_text_links": document.metadata.get("full_text_links", []),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                meta_path,
+                encoding="utf-8"
+            )
+        except Exception as e:
+            logger.error(f"saij: error saving metadata for {ruling_id}: {e}")
+            return DownloadResult(status=DownloadStatus.FAILURE)
 
         # Download all files
         download_urls = document.document_urls or []
         if not download_urls:
             logger.warning(f"saij: no download URLs for {ruling_id}")
-            return True
+            return DownloadResult(
+                status=DownloadStatus.SUCCESS,
+                file_path=str(meta_path)
+            )
 
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
                 for index, download_url in enumerate(download_urls):
-                    await self._download_one(client, ruling_id, index, download_url, output_dir)
-            return True
+                    await self._download_one(
+                        client, ruling_id, index, download_url, output_dir
+                    )
+            logger.info(f"saij: successfully downloaded {ruling_id}")
+            return DownloadResult(
+                status=DownloadStatus.SUCCESS,
+                file_path=str(meta_path)
+            )
         except Exception as e:
             logger.error(f"saij: error downloading {ruling_id}: {e}")
-            return False
+            return DownloadResult(status=DownloadStatus.FAILURE)
 
     async def _download_one(
         self,
@@ -239,7 +265,7 @@ class SAIJScraper(Scraper):
         ruling_id: str,
         index: int,
         download_url: str,
-        output_dir: Path
+        output_dir: Path,
     ):
         """
         Download a single file via HTTP client and save it to output_dir.
@@ -256,7 +282,9 @@ class SAIJScraper(Scraper):
                 if cd_match:
                     ext = os.path.splitext(cd_match.group(1))[-1]
                 else:
-                    ext = os.path.splitext(download_url.rsplit("/", 1)[-1])[-1] or ".bin"
+                    ext = (
+                        os.path.splitext(download_url.rsplit("/", 1)[-1])[-1] or ".bin"
+                    )
 
                 dest = output_dir / f"{ruling_id}_{index}{ext}"
                 with open(dest, "wb") as f:

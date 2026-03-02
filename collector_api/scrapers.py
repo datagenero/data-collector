@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import datetime
 from pathlib import Path
@@ -171,27 +172,42 @@ async def scrape_documents(
 
             logger.info(f"scrapers: downloading to {output_dir}")
 
-            # Download documents and update last_downloaded timestamp
-            download_results = []
-            for doc in documents:
-                try:
-                    result = await scraper.download_document(doc, output_dir)
-                    download_results.append(result)
+            # Download documents asynchronously with semaphore to limit concurrency
+            max_concurrent_downloads = int(os.getenv("MAX_CONCURRENT_DOWNLOADS", "5"))
+            semaphore = asyncio.Semaphore(max_concurrent_downloads)
 
-                    if result.status == DownloadStatus.SUCCESS:
-                        downloaded_count += 1
-                        # Update last_downloaded timestamp and document_url in database
-                        _update_download_timestamp(
-                            db, doc.title, dataset.id, doc.document_id, result.file_path
-                        )
-                    elif result.status == DownloadStatus.SKIP:
-                        skipped_count += 1
-                    elif result.status == DownloadStatus.FAILURE:
-                        download_errors += 1
+            async def download_with_semaphore(doc):
+                """Download a single document with semaphore control."""
+                async with semaphore:
+                    try:
+                        return await scraper.download_document(doc, output_dir)
+                    except Exception as e:
+                        logger.error(f"scrapers: error downloading {doc.document_id}: {e}")
+                        return DownloadResult(status=DownloadStatus.FAILURE)
 
-                except Exception as e:
-                    logger.error(f"scrapers: error downloading {doc.document_id}: {e}")
-                    download_results.append(DownloadResult(status=DownloadStatus.FAILURE))
+            # Download all documents in parallel (with concurrency limit)
+            download_results = await asyncio.gather(
+                *[download_with_semaphore(doc) for doc in documents],
+                return_exceptions=True
+            )
+
+            # Process results and update database
+            for doc, result in zip(documents, download_results):
+                # Handle exceptions that escaped the wrapper
+                if isinstance(result, Exception):
+                    logger.error(f"scrapers: unexpected exception for {doc.document_id}: {result}")
+                    download_errors += 1
+                    continue
+
+                if result.status == DownloadStatus.SUCCESS:
+                    downloaded_count += 1
+                    # Update last_downloaded timestamp and document_url in database
+                    _update_download_timestamp(
+                        db, doc.title, dataset.id, doc.document_id, result.file_path
+                    )
+                elif result.status == DownloadStatus.SKIP:
+                    skipped_count += 1
+                elif result.status == DownloadStatus.FAILURE:
                     download_errors += 1
 
             # Commit download timestamp updates
