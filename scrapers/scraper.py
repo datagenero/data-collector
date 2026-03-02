@@ -4,10 +4,28 @@ Base Scraper class that defines the interface for all scrapers.
 Each scraper should subclass this and implement the abstract methods.
 """
 import asyncio
+import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from enum import Enum
+from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
+
+
+class DownloadStatus(Enum):
+    """Status codes for document download operations."""
+    SUCCESS = "success"
+    FAILURE = "failure"
+    SKIP = "skip"
+
+
+@dataclass
+class DownloadResult:
+    """Result of a document download operation."""
+    status: DownloadStatus
+    file_path: Optional[str] = None
 
 
 @dataclass
@@ -48,6 +66,66 @@ class Scraper(ABC):
         """Return the base URL for this data source."""
         pass
 
+    def file_exists(self, output_dir: Path, output_filename: str) -> bool:
+        """
+        Check if a file exists at the specified location.
+
+        This method provides a unified interface for checking file existence that can be
+        extended later to support cloud storage (S3, GCS, etc.) in addition to
+        local filesystem storage.
+
+        Args:
+            output_dir: Directory where the file should be located
+            output_filename: Name of the file to check
+
+        Returns:
+            True if the file exists, False otherwise
+        """
+        file_path = output_dir / output_filename
+        return file_path.exists()
+
+    async def store_file(
+        self,
+        content: Union[str, bytes],
+        file_path: Path,
+        encoding: Optional[str] = "utf-8"
+    ) -> bool:
+        """
+        Store file content to a specific path.
+
+        This method provides a unified interface for storing files that can be
+        extended later to support cloud storage (S3, GCS, etc.) in addition to
+        local filesystem storage.
+
+        Args:
+            content: The file content (string for text files, bytes for binary)
+            file_path: Path where the file should be stored
+            encoding: Character encoding for text files (ignored for bytes). Default: utf-8
+
+        Returns:
+            True if storage was successful, False otherwise
+        """
+        try:
+            # Ensure parent directory exists
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write content based on type
+            if isinstance(content, bytes):
+                # Binary content (PDF, images, etc.)
+                with open(file_path, "wb") as f:
+                    f.write(content)
+            else:
+                # Text content (HTML, JSON, etc.)
+                with open(file_path, "w", encoding=encoding) as f:
+                    f.write(content)
+
+            logger.debug(f"{self.name}: stored file at {file_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"{self.name}: failed to store file at {file_path}: {e}")
+            return False
+
     @abstractmethod
     async def list_documents(
         self,
@@ -69,7 +147,7 @@ class Scraper(ABC):
         self,
         document: ScrapedDocument,
         output_dir: Path
-    ) -> bool:
+    ) -> DownloadResult:
         """
         Download a specific document and save it to disk.
 
@@ -78,7 +156,9 @@ class Scraper(ABC):
             output_dir: Directory where files should be saved
 
         Returns:
-            True if download was successful, False otherwise
+            DownloadResult with:
+                - status: DownloadStatus (SUCCESS, FAILURE, or SKIP)
+                - file_path: Path where the file was saved (only for SUCCESS)
         """
         pass
 
@@ -113,5 +193,7 @@ class Scraper(ABC):
             return_exceptions=True
         )
 
-        successful = sum(1 for r in results if r is True)
-        print(f"Downloaded {successful}/{len(documents)} documents successfully")
+        successful = sum(1 for r in results if isinstance(r, DownloadResult) and r.status == DownloadStatus.SUCCESS)
+        skipped = sum(1 for r in results if isinstance(r, DownloadResult) and r.status == DownloadStatus.SKIP)
+        failed = sum(1 for r in results if isinstance(r, Exception) or (isinstance(r, DownloadResult) and r.status == DownloadStatus.FAILURE))
+        print(f"Downloaded {successful}/{len(documents)} documents successfully ({skipped} skipped, {failed} failed)")

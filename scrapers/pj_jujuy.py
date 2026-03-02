@@ -9,7 +9,7 @@ import re
 from typing import List, Optional
 from pathlib import Path
 from playwright.async_api import async_playwright
-from scrapers.scraper import Scraper, ScrapedDocument
+from scrapers.scraper import Scraper, ScrapedDocument, DownloadStatus, DownloadResult
 from scrapers import ScraperRegistry
 
 logger = logging.getLogger(__name__)
@@ -93,17 +93,19 @@ class JujuyScraper(Scraper):
 
     async def download_document(
         self, document: ScrapedDocument, output_dir: Path
-    ) -> bool:
+    ) -> DownloadResult:
         """
         Download a single document and save its content.
 
         Migrated from scrape_document() in the original script.
         """
-        output_file = output_dir / f"{document.document_id}.html"
+        output_filename = f"{document.document_id}.html"
 
         # Skip if file already exists
-        if output_file.exists():
-            return True
+        if self.file_exists(output_dir, output_filename):
+            return DownloadResult(status=DownloadStatus.SKIP)
+
+        output_file = output_dir / output_filename
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -117,13 +119,22 @@ class JujuyScraper(Scraper):
                 content_div = page.locator("#contentToPrint")
                 content = await content_div.inner_html()
 
-                # Save to file
-                output_file.write_text(content, encoding="utf-8")
-                return True
+                # Store file using the base class method
+                success = await self.store_file(content, output_file, encoding="utf-8")
+
+                if success:
+                    logger.info(f"pj_jujuy: successfully downloaded {document.document_id}")
+                    return DownloadResult(
+                        status=DownloadStatus.SUCCESS,
+                        file_path=str(output_file)
+                    )
+                else:
+                    logger.error(f"pj_jujuy: failed to store file for {document.document_id}")
+                    return DownloadResult(status=DownloadStatus.FAILURE)
 
             except Exception as e:
                 logger.error(f"pj_jujuy: error scraping {document.document_id}: {e}")
-                return False
+                return DownloadResult(status=DownloadStatus.FAILURE)
             finally:
                 await page.close()
                 await browser.close()

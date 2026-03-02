@@ -4,7 +4,7 @@ Mock scraper for testing purposes.
 import logging
 from typing import List, Optional
 from pathlib import Path
-from scrapers.scraper import Scraper, ScrapedDocument
+from scrapers.scraper import Scraper, ScrapedDocument, DownloadStatus, DownloadResult
 from scrapers import ScraperRegistry
 
 logger = logging.getLogger(__name__)
@@ -63,12 +63,21 @@ class MockScraper(Scraper):
         self,
         document: ScrapedDocument,
         output_dir: Path
-    ) -> bool:
+    ) -> DownloadResult:
         """Mock download - just creates a placeholder file."""
-        output_file = output_dir / f"{document.document_id}.txt"
+        output_filename = f"{document.document_id}.txt"
+
+        # Skip if file already exists
+        if self.file_exists(output_dir, output_filename):
+            return DownloadResult(status=DownloadStatus.SKIP)
+
+        output_file = output_dir / output_filename
         output_file.write_text(
             f"Mock document: {document.title}\n"
             f"Source: {document.source_url}\n"
             f"Metadata: {document.metadata}\n"
         )
-        return True
+        return DownloadResult(
+            status=DownloadStatus.SUCCESS,
+            file_path=str(output_file)
+        )
