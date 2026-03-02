@@ -50,7 +50,7 @@ class SAIJScraper(Scraper):
         clean = re.sub(r"[,./;]", "", title)
         return re.sub(r"\s+", "_", clean).strip("_")
 
-    async def _process_detail_page(self, browser, href: str) -> dict:
+    async def _process_detail_page(self, browser, href: str) -> Optional[dict]:
         """
         Open a ruling detail page and extract structured data.
 
@@ -61,12 +61,12 @@ class SAIJScraper(Scraper):
             href: Full URL of the ruling detail page
 
         Returns:
-            Dict with title, sumario, and full_text_links
+            Dict with title, sumario, and full_text_links, or None if processing fails
         """
         page = await browser.new_page()
         try:
-            await page.goto(href)
-            await page.wait_for_load_state("networkidle")
+            await page.goto(href, timeout=30000)
+            await page.wait_for_load_state("networkidle", timeout=30000)
 
             title = await page.locator("h1.p-titulo").inner_text()
 
@@ -98,6 +98,9 @@ class SAIJScraper(Scraper):
                 "sumario": sumario,
                 "full_text_links": full_text_links,
             }
+        except Exception as e:
+            logger.error(f"saij: failed to process detail page {href}: {e}")
+            return None
         finally:
             await page.close()
 
@@ -151,11 +154,17 @@ class SAIJScraper(Scraper):
                 # Process all hrefs on this page in parallel to get detailed metadata
                 import asyncio
                 page_results = await asyncio.gather(
-                    *(self._process_detail_page(browser, href) for href in page_hrefs)
+                    *(self._process_detail_page(browser, href) for href in page_hrefs),
+                    return_exceptions=True
                 )
 
-                # Convert to ScrapedDocument objects
+                # Convert to ScrapedDocument objects, filtering out failed results
                 for result in page_results:
+                    # Skip None results (failed processing) and exceptions
+                    if result is None or isinstance(result, Exception):
+                        if isinstance(result, Exception):
+                            logger.error(f"saij: exception in detail page processing: {result}")
+                        continue
                     ruling_id = self._ruling_id(result["title"])
                     doc = ScrapedDocument(
                         source_url=result["href"],
