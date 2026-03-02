@@ -5,7 +5,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from collector_api.router import router as collector_router
+from collector_api.scrapers import router as scrapers_router
+from collector_api.datasets import router as datasets_router
+from collector_api.documents import router as documents_router
 
 # Import scrapers to register them
 import scrapers.mock_scraper  # noqa: F401
@@ -24,8 +26,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Data Collector")
 
-# Include API router
-app.include_router(collector_router)
+# Include API routers
+app.include_router(scrapers_router)
+app.include_router(datasets_router)
+app.include_router(documents_router)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -65,35 +69,6 @@ async def home(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "datasets": DATASETS}
-    )
-
-
-@app.get("/dataset/{dataset_id}", response_class=HTMLResponse)
-async def dataset_detail(request: Request, dataset_id: str):
-    """Detail page for a specific dataset showing all documents"""
-    logger.info(f"Accessing dataset: {dataset_id}")
-
-    # Find the dataset
-    dataset = next((d for d in DATASETS if d["id"] == dataset_id), None)
-
-    if not dataset:
-        logger.warning(f"Dataset not found: {dataset_id}")
-        return templates.TemplateResponse(
-            "404.html",
-            {"request": request},
-            status_code=404
-        )
-
-    # Placeholder documents - will be replaced with actual scraped data later
-    documents = []
-
-    return templates.TemplateResponse(
-        "dataset.html",
-        {
-            "request": request,
-            "dataset": dataset,
-            "documents": documents
-        }
     )
 
 
