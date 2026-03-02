@@ -14,17 +14,21 @@ router = APIRouter(prefix="/api", tags=["documents"])
 @router.get("/documents")
 def list_documents(
     dataset_name: Optional[str] = Query(None, description="Filter documents by dataset name"),
+    page_start: int = Query(0, ge=0, description="Starting index for pagination (0-based)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of documents per page (max 100)"),
     db: Session = Depends(get_db)
 ):
     """
-    Returns a list of all documents in the database.
+    Returns a list of documents in the database with pagination support.
 
     Args:
         dataset_name: Optional dataset name to filter documents by
+        page_start: Starting index for pagination (default: 0)
+        page_size: Number of documents to return (default: 20, max: 100)
         db: Database session
 
     Returns:
-        List of documents with their metadata
+        Paginated list of documents with their metadata
     """
     # Build query
     query = db.query(Document)
@@ -38,8 +42,11 @@ def list_documents(
 
         query = query.filter(Document.dataset_id == dataset.id)
 
-    # Execute query
-    documents = query.all()
+    # Get total count before pagination
+    total_count = query.count()
+
+    # Apply pagination
+    documents = query.offset(page_start).limit(page_size).all()
 
     # Format response
     documents_list = []
@@ -57,7 +64,10 @@ def list_documents(
         })
 
     return {
-        "total": len(documents_list),
+        "total": total_count,
+        "page_start": page_start,
+        "page_size": page_size,
+        "returned": len(documents_list),
         "dataset_name": dataset_name,
         "documents": documents_list
     }
