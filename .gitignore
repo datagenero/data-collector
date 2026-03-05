@@ -16,3 +16,5 @@ wheels/
 *.db
 
 settings.json
+# For GCloud credentials
+.secrets
