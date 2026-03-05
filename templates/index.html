@@ -12,7 +12,7 @@
     {% for dataset in datasets %}
     <a href="/dataset/{{ dataset.id }}" class="card">
         <h3>{{ dataset.name }}</h3>
-        <p>{{ dataset.description }}</p>
+        <p class="document-count">{{ dataset.document_count }} documents</p>
         <span class="card-arrow">→</span>
     </a>
     {% endfor %}

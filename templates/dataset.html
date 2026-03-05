@@ -6,22 +6,54 @@
 <div class="page-header">
     <a href="/" class="back-link">← Back to datasets</a>
     <h2>{{ dataset.name }}</h2>
-    <p class="subtitle">{{ dataset.description }}</p>
+    <p class="subtitle">{{ total_documents }} documents</p>
 </div>
 
 <div class="documents-section">
     {% if documents %}
-    <div class="documents-list">
-        {% for document in documents %}
-        <div class="document-item">
-            <h3>{{ document.title }}</h3>
-            <p>{{ document.summary }}</p>
-            <div class="document-meta">
-                <span>Source: {{ document.source }}</span>
-                <span>Date: {{ document.date }}</span>
-            </div>
+    <table class="documents-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Source URL</th>
+                <th>Last Seen</th>
+                <th>Last Downloaded</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for document in documents %}
+            <tr>
+                <td>{{ document.id }}</td>
+                <td>{{ document.title }}</td>
+                <td><a href="{{ document.source_url }}" target="_blank" class="source-link">View Source</a></td>
+                <td>{{ document.last_seen.strftime('%Y-%m-%d %H:%M') if document.last_seen else 'N/A' }}</td>
+                <td>{{ document.last_downloaded.strftime('%Y-%m-%d %H:%M') if document.last_downloaded else 'Not downloaded' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        <div class="pagination-info">
+            Showing {{ page * page_size + 1 }} - {{ [page * page_size + documents|length, total_documents]|min }} of {{ total_documents }}
         </div>
-        {% endfor %}
+        <div class="pagination-buttons">
+            {% if has_previous %}
+            <a href="/dataset/{{ dataset.id }}?page={{ page - 1 }}&page_size={{ page_size }}" class="btn btn-secondary">← Previous</a>
+            {% else %}
+            <button class="btn btn-secondary" disabled>← Previous</button>
+            {% endif %}
+
+            <span class="page-indicator">Page {{ page + 1 }} of {{ total_pages }}</span>
+
+            {% if has_next %}
+            <a href="/dataset/{{ dataset.id }}?page={{ page + 1 }}&page_size={{ page_size }}" class="btn btn-secondary">Next →</a>
+            {% else %}
+            <button class="btn btn-secondary" disabled>Next →</button>
+            {% endif %}
+        </div>
     </div>
     {% else %}
     <div class="empty-state">
