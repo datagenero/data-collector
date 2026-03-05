@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @ScraperRegistry.register
 class JujuyScraper(Scraper):
-    """Scraper for Jujuy judicial documents."""
+    """Scraper for Jujuy judicial sentences."""
 
     @property
     def name(self) -> str:
@@ -27,6 +27,17 @@ class JujuyScraper(Scraper):
     @property
     def base_url(self) -> str:
         return "https://jurisprudencia.justiciajujuy.gov.ar"
+
+    @property
+    def url_suffix(self) -> str:
+        return "/public/buscador"
+
+    async def _get_hrefs_from_page(self, page) -> List[str]:
+        table = page.locator("#print_list tbody")
+        links = table.locator('a[title="Ver Detalle"]')
+
+        hrefs = await links.evaluate_all("els => els.map(e => e.getAttribute('href'))")
+        return hrefs
 
     async def list_documents(
         self, page_limit: Optional[int] = None
@@ -44,7 +55,7 @@ class JujuyScraper(Scraper):
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
 
-            await page.goto(f"{self.base_url}/public/buscador")
+            await page.goto(f"{self.base_url}{self.url_suffix}")
             await page.locator('button[type="submit"]').click()
             await page.wait_for_load_state("networkidle")
 
@@ -52,12 +63,7 @@ class JujuyScraper(Scraper):
             for page_num in range(1, max_pages + 1):
                 logger.info(f"pj_jujuy: processing page {page_num}")
                 # Get all document links on current page
-                table = page.locator("#print_list tbody")
-                links = table.locator('a[title="Ver Detalle"]')
-
-                hrefs = await links.evaluate_all(
-                    "els => els.map(e => e.getAttribute('href'))"
-                )
+                hrefs = await self._get_hrefs_from_page(page)
 
                 # Convert hrefs to ScrapedDocument objects
                 for href in hrefs:
@@ -92,9 +98,7 @@ class JujuyScraper(Scraper):
         logger.info(f"pj_jujuy: total documents collected: {len(all_documents)}")
         return all_documents
 
-    async def download_document(
-        self, document: ScrapedDocument
-    ) -> DownloadResult:
+    async def download_document(self, document: ScrapedDocument) -> DownloadResult:
         """
         Download a single document and save its content.
 
@@ -119,16 +123,22 @@ class JujuyScraper(Scraper):
                 content = await content_div.inner_html()
 
                 # Store file using the base class method
-                success = await self.store_file(content, output_filename, encoding="utf-8")
+                success = await self.store_file(
+                    content, output_filename, encoding="utf-8"
+                )
 
                 if success:
-                    logger.info(f"pj_jujuy: successfully downloaded {document.document_id}")
+                    logger.info(
+                        f"pj_jujuy: successfully downloaded {document.document_id}"
+                    )
                     return DownloadResult(
                         status=DownloadStatus.SUCCESS,
                         file_path=self.download_filepath(output_filename),
                     )
                 else:
-                    logger.error(f"pj_jujuy: failed to store file for {document.document_id}")
+                    logger.error(
+                        f"pj_jujuy: failed to store file for {document.document_id}"
+                    )
                     return DownloadResult(status=DownloadStatus.FAILURE)
 
             except Exception as e:
@@ -144,3 +154,30 @@ class JujuyScraperCloud(GCloudScraper, JujuyScraper):
     @property
     def name(self) -> str:
         return "pj_jujuy_cloud"
+
+
+@ScraperRegistry.register
+class JujuyFallosScraper(GCloudScraper, JujuyScraper):
+    """Scraper for Jujuy judicial fallos."""
+
+    @property
+    def name(self) -> str:
+        return "pj_jujuy_fallos_cloud"
+
+    @property
+    def url_suffix(self) -> str:
+        return "/public/buscador?index=1"
+
+    async def _get_hrefs_from_page(self, page) -> List[str]:
+        """
+        Extract document hrefs from the fallos page.
+
+        Locates links within app-fallo-resultado table with aria-label="Editar".
+        """
+        # Locate all links with aria-label="Editar" inside app-fallo-resultado table
+        links = page.locator('app-fallo-resultado table td a[aria-label="Editar"]')
+
+        # Extract all href attributes
+        hrefs = await links.evaluate_all("els => els.map(e => e.getAttribute('href'))")
+
+        return hrefs
