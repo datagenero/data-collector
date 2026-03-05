@@ -9,6 +9,7 @@ import re
 from typing import List, Optional
 from pathlib import Path
 from playwright.async_api import async_playwright
+from scrapers.gcloud_scraper import GCloudScraper
 from scrapers.scraper import Scraper, ScrapedDocument, DownloadStatus, DownloadResult
 from scrapers import ScraperRegistry
 
@@ -138,3 +139,10 @@ class JujuyScraper(Scraper):
             finally:
                 await page.close()
                 await browser.close()
+
+
+@ScraperRegistry.register
+class JujuyScraperCloud(GCloudScraper, JujuyScraper):
+    @property
+    def name(self) -> str:
+        return "pj_jujuy_cloud"

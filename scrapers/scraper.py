@@ -3,6 +3,7 @@ Base Scraper class that defines the interface for all scrapers.
 
 Each scraper should subclass this and implement the abstract methods.
 """
+
 import asyncio
 import logging
 from abc import ABC, abstractmethod
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class DownloadStatus(Enum):
     """Status codes for document download operations."""
+
     SUCCESS = "success"
     FAILURE = "failure"
     SKIP = "skip"
@@ -24,6 +26,7 @@ class DownloadStatus(Enum):
 @dataclass
 class DownloadResult:
     """Result of a document download operation."""
+
     status: DownloadStatus
     file_path: Optional[str] = None
 
@@ -31,6 +34,7 @@ class DownloadResult:
 @dataclass
 class ScrapedDocument:
     """Represents a document found by a scraper."""
+
     source_url: str
     document_id: str
     title: Optional[str] = None
@@ -88,7 +92,7 @@ class Scraper(ABC):
         self,
         content: Union[str, bytes],
         file_path: Path,
-        encoding: Optional[str] = "utf-8"
+        encoding: Optional[str] = "utf-8",
     ) -> bool:
         """
         Store file content to a specific path.
@@ -128,8 +132,7 @@ class Scraper(ABC):
 
     @abstractmethod
     async def list_documents(
-        self,
-        page_limit: Optional[int] = None
+        self, page_limit: Optional[int] = None
     ) -> List[ScrapedDocument]:
         """
         Discover and list available documents from the source.
@@ -144,9 +147,7 @@ class Scraper(ABC):
 
     @abstractmethod
     async def download_document(
-        self,
-        document: ScrapedDocument,
-        output_dir: Path
+        self, document: ScrapedDocument, output_dir: Path
     ) -> DownloadResult:
         """
         Download a specific document and save it to disk.
@@ -166,7 +167,7 @@ class Scraper(ABC):
         self,
         output_dir: Path,
         page_limit: Optional[int] = None,
-        max_concurrent: int = 5
+        max_concurrent: int = 5,
     ):
         """
         Run the complete scraping workflow: list documents and download them.
@@ -189,11 +190,25 @@ class Scraper(ABC):
                 return await self.download_document(doc, output_dir)
 
         results = await asyncio.gather(
-            *[download_with_semaphore(doc) for doc in documents],
-            return_exceptions=True
+            *[download_with_semaphore(doc) for doc in documents], return_exceptions=True
         )
 
-        successful = sum(1 for r in results if isinstance(r, DownloadResult) and r.status == DownloadStatus.SUCCESS)
-        skipped = sum(1 for r in results if isinstance(r, DownloadResult) and r.status == DownloadStatus.SKIP)
-        failed = sum(1 for r in results if isinstance(r, Exception) or (isinstance(r, DownloadResult) and r.status == DownloadStatus.FAILURE))
-        print(f"Downloaded {successful}/{len(documents)} documents successfully ({skipped} skipped, {failed} failed)")
+        successful = sum(
+            1
+            for r in results
+            if isinstance(r, DownloadResult) and r.status == DownloadStatus.SUCCESS
+        )
+        skipped = sum(
+            1
+            for r in results
+            if isinstance(r, DownloadResult) and r.status == DownloadStatus.SKIP
+        )
+        failed = sum(
+            1
+            for r in results
+            if isinstance(r, Exception)
+            or (isinstance(r, DownloadResult) and r.status == DownloadStatus.FAILURE)
+        )
+        print(
+            f"Downloaded {successful}/{len(documents)} documents successfully ({skipped} skipped, {failed} failed)"
+        )

@@ -229,7 +229,7 @@ class SAIJScraper(Scraper):
                     indent=2,
                 ),
                 meta_path,
-                encoding="utf-8"
+                encoding="utf-8",
             )
         except Exception as e:
             logger.error(f"saij: error saving metadata for {ruling_id}: {e}")
@@ -240,8 +240,7 @@ class SAIJScraper(Scraper):
         if not download_urls:
             logger.warning(f"saij: no download URLs for {ruling_id}")
             return DownloadResult(
-                status=DownloadStatus.SUCCESS,
-                file_path=str(meta_path)
+                status=DownloadStatus.SUCCESS, file_path=str(meta_path)
             )
 
         try:
@@ -252,8 +251,7 @@ class SAIJScraper(Scraper):
                     )
             logger.info(f"saij: successfully downloaded {ruling_id}")
             return DownloadResult(
-                status=DownloadStatus.SUCCESS,
-                file_path=str(meta_path)
+                status=DownloadStatus.SUCCESS, file_path=str(meta_path)
             )
         except Exception as e:
             logger.error(f"saij: error downloading {ruling_id}: {e}")
@@ -293,3 +291,16 @@ class SAIJScraper(Scraper):
 
         except Exception as e:
             logger.error(f"saij: error downloading {download_url}: {e}")
+
+
+# Cloud-enabled SAIJ scraper using Google Cloud Storage
+from scrapers.gcloud_scraper import GCloudScraper
+
+
+@ScraperRegistry.register
+class SAIJScraperCloud(GCloudScraper, SAIJScraper):
+    """SAIJ scraper that stores files in Google Cloud Storage."""
+
+    @property
+    def name(self) -> str:
+        return "saij_cloud"

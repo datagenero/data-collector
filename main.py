@@ -9,13 +9,14 @@ from collector_api.scrapers import router as scrapers_router
 from collector_api.datasets import router as datasets_router
 from collector_api.documents import router as documents_router
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Import scrapers to register them
 import scrapers.mock_scraper  # noqa: F401
 import scrapers.pj_jujuy  # noqa: F401
 import scrapers.saij  # noqa: F401
 
-# Load environment variables from .env file
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
