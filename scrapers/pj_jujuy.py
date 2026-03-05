@@ -93,7 +93,7 @@ class JujuyScraper(Scraper):
         return all_documents
 
     async def download_document(
-        self, document: ScrapedDocument, output_dir: Path
+        self, document: ScrapedDocument
     ) -> DownloadResult:
         """
         Download a single document and save its content.
@@ -103,10 +103,8 @@ class JujuyScraper(Scraper):
         output_filename = f"{document.document_id}.html"
 
         # Skip if file already exists
-        if self.file_exists(output_dir, output_filename):
+        if self.file_exists(output_filename):
             return DownloadResult(status=DownloadStatus.SKIP)
-
-        output_file = output_dir / output_filename
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -121,13 +119,13 @@ class JujuyScraper(Scraper):
                 content = await content_div.inner_html()
 
                 # Store file using the base class method
-                success = await self.store_file(content, output_file, encoding="utf-8")
+                success = await self.store_file(content, output_filename, encoding="utf-8")
 
                 if success:
                     logger.info(f"pj_jujuy: successfully downloaded {document.document_id}")
                     return DownloadResult(
                         status=DownloadStatus.SUCCESS,
-                        file_path=str(output_file)
+                        file_path=self.download_filepath(output_filename),
                     )
                 else:
                     logger.error(f"pj_jujuy: failed to store file for {document.document_id}")

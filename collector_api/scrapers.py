@@ -161,16 +161,13 @@ async def scrape_documents(
                 f"scrapers: starting download of {len(documents)} documents for {scraper_name}"
             )
 
-            # Get download path from environment variable
-            output_dir = Path(os.getenv(
-                f"DOWNLOAD_DOCUMENTS_PATH/{scraper_name}",
-                f"../data/data-collector/{scraper_name}",
-            ))
-
-            # Ensure output directory exists
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            logger.info(f"scrapers: downloading to {output_dir}")
+            # Create storage location (directory for local, bucket verification for cloud)
+            if not scraper.create_storage_location():
+                logger.error(f"scrapers: failed to create storage location for {scraper_name}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to create storage location for {scraper_name}"
+                )
 
             # Download documents asynchronously with semaphore to limit concurrency
             max_concurrent_downloads = int(os.getenv("MAX_CONCURRENT_DOWNLOADS", "5"))
@@ -180,7 +177,7 @@ async def scrape_documents(
                 """Download a single document with semaphore control."""
                 async with semaphore:
                     try:
-                        return await scraper.download_document(doc, output_dir)
+                        return await scraper.download_document(doc)
                     except Exception as e:
                         logger.error(f"scrapers: error downloading {doc.document_id}: {e}")
                         return DownloadResult(status=DownloadStatus.FAILURE)

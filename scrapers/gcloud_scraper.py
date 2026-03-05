@@ -40,6 +40,21 @@ class GCloudScraper(Scraper):
         self._bucket = None
 
     @property
+    def download_path(self) -> str:
+        """Return the base directory to store the downloaded files."""
+        return self.name
+
+    def download_filepath(self, filename: str) -> str:
+        """
+        Return the base URL path for accessing downloaded files.
+
+        For GCS, returns a gs:// URL that can be used to access the files.
+        Format: gs://bucket-name/scraper-name
+        """
+        bucket_name = os.getenv("GCLOUD_STORAGE_BUCKET", "unknown-bucket")
+        return f"gs://{bucket_name}/{self.name}/{filename}"
+
+    @property
     def storage_client(self):
         """Lazy-load the Google Cloud Storage client."""
         if self._storage_client is None:
@@ -59,36 +74,52 @@ class GCloudScraper(Scraper):
             logger.info(f"{self.name}: using GCS bucket '{bucket_name}'")
         return self._bucket
 
-    def _get_blob_path(self, file_path: Path) -> str:
+    def create_storage_location(self) -> bool:
         """
-        Convert a local file path to a GCS blob path.
+        Create or verify the storage location in Google Cloud Storage.
 
-        Args:
-            file_path: Local file path
+        For GCS, this ensures the bucket exists and is accessible.
+        Note: GCS doesn't require creating "directories" - they're just prefixes.
 
         Returns:
-            Blob path for GCS (using forward slashes, relative path)
+            True if bucket exists and is accessible, False on error
         """
-        # Use the scraper name as the base directory in GCS
-        # Convert to string and use forward slashes
-        relative_path = str(file_path.name)
-        blob_path = f"{self.name}/{relative_path}"
-        return blob_path
+        try:
+            # Check if bucket exists and is accessible
+            bucket_name = os.getenv("GCLOUD_STORAGE_BUCKET")
+            if not bucket_name:
+                logger.error(f"{self.name}: GCLOUD_STORAGE_BUCKET environment variable not set")
+                return False
 
-    def file_exists(self, output_dir: Path, output_filename: str) -> bool:
+            # Accessing self.bucket will trigger lazy-loading and verification
+            bucket_exists = self.bucket.exists()
+
+            if bucket_exists:
+                logger.info(f"{self.name}: verified GCS bucket '{bucket_name}' exists and is accessible")
+                return True
+            else:
+                logger.error(f"{self.name}: GCS bucket '{bucket_name}' does not exist")
+                return False
+
+        except GoogleCloudError as e:
+            logger.error(f"{self.name}: failed to access GCS bucket: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"{self.name}: unexpected error verifying GCS bucket: {e}")
+            return False
+
+    def file_exists(self, output_filename: str) -> bool:
         """
         Check if a file exists in Google Cloud Storage.
 
         Args:
-            output_dir: Directory where the file would be located (used for path construction)
             output_filename: Name of the file to check
 
         Returns:
             True if the file exists in GCS, False otherwise
         """
         try:
-            file_path = output_dir / output_filename
-            blob_path = self._get_blob_path(file_path)
+            blob_path = f"{self.name}/{output_filename}"
             blob = self.bucket.blob(blob_path)
             exists = blob.exists()
             logger.debug(f"{self.name}: checked GCS blob '{blob_path}', exists={exists}")
@@ -117,7 +148,7 @@ class GCloudScraper(Scraper):
             True if upload was successful, False otherwise
         """
         try:
-            blob_path = self._get_blob_path(file_path)
+            blob_path = f"{self.name}/{file_path}"
             blob = self.bucket.blob(blob_path)
 
             # Upload content based on type

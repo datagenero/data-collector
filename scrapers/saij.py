@@ -200,58 +200,38 @@ class SAIJScraper(Scraper):
         logger.info(f"saij: total documents collected: {len(all_documents)}")
         return all_documents
 
-    async def download_document(
-        self, document: ScrapedDocument, output_dir: Path
-    ) -> DownloadResult:
+    @staticmethod
+    def _get_base_filename(ruling_id: str, index: int = 0):
+        return f"{ruling_id}_{index}.pdf"
+
+    async def download_document(self, document: ScrapedDocument) -> DownloadResult:
         """
         Download all files for a specific document and save metadata.
 
         Migrated from download_files() and _download_one() in the original script.
         """
         ruling_id = document.document_id
-        meta_path = output_dir / f"{ruling_id}.json"
+        # We use a base filename because there could be multiple download links in page
+        base_filename = self._get_base_filename(ruling_id)
 
-        # Check if metadata file already exists (indicates document was already downloaded)
-        if self.file_exists(output_dir, f"{ruling_id}.json"):
+        # Check if at least one file already exists (indicates document was already downloaded)
+        if self.file_exists(base_filename):
             return DownloadResult(status=DownloadStatus.SKIP)
-
-        # Save metadata first
-        try:
-            await self.store_file(
-                json.dumps(
-                    {
-                        "href": document.source_url,
-                        "title": document.title,
-                        "sumario": document.metadata.get("sumario", ""),
-                        "full_text_links": document.metadata.get("full_text_links", []),
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                meta_path,
-                encoding="utf-8",
-            )
-        except Exception as e:
-            logger.error(f"saij: error saving metadata for {ruling_id}: {e}")
-            return DownloadResult(status=DownloadStatus.FAILURE)
 
         # Download all files
         download_urls = document.document_urls or []
         if not download_urls:
             logger.warning(f"saij: no download URLs for {ruling_id}")
-            return DownloadResult(
-                status=DownloadStatus.SUCCESS, file_path=str(meta_path)
-            )
+            return DownloadResult(status=DownloadStatus.FAILURE)
 
         try:
             async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
                 for index, download_url in enumerate(download_urls):
-                    await self._download_one(
-                        client, ruling_id, index, download_url, output_dir
-                    )
+                    await self._download_one(client, ruling_id, index, download_url)
             logger.info(f"saij: successfully downloaded {ruling_id}")
             return DownloadResult(
-                status=DownloadStatus.SUCCESS, file_path=str(meta_path)
+                status=DownloadStatus.SUCCESS,
+                file_path=self.download_filepath(base_filename),
             )
         except Exception as e:
             logger.error(f"saij: error downloading {ruling_id}: {e}")
@@ -263,12 +243,12 @@ class SAIJScraper(Scraper):
         ruling_id: str,
         index: int,
         download_url: str,
-        output_dir: Path,
     ):
         """
         Download a single file via HTTP client and save it to output_dir.
 
         Migrated from _download_one() in the original script.
+        Uses self.store_file() for storage, supporting both local and cloud storage.
         """
         try:
             async with client.stream("GET", download_url) as response:
@@ -283,11 +263,21 @@ class SAIJScraper(Scraper):
                     ext = (
                         os.path.splitext(download_url.rsplit("/", 1)[-1])[-1] or ".bin"
                     )
+                if ext != ".pdf":
+                    logger.info(f"saij: skipping non-PDF file {download_url}")
+                    return
 
-                dest = output_dir / f"{ruling_id}_{index}{ext}"
-                with open(dest, "wb") as f:
-                    async for chunk in response.aiter_bytes():
-                        f.write(chunk)
+                # Collect all bytes from the stream
+                content = b""
+                async for chunk in response.aiter_bytes():
+                    content += chunk
+
+                # Store file using the base class method (supports both local and cloud)
+                dest = self._get_base_filename(ruling_id, index)
+                success = await self.store_file(content, dest)
+
+                if not success:
+                    logger.error(f"saij: failed to store file {dest}")
 
         except Exception as e:
             logger.error(f"saij: error downloading {download_url}: {e}")

@@ -8,6 +8,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
+import os
 from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 from dataclasses import dataclass
@@ -70,7 +71,40 @@ class Scraper(ABC):
         """Return the base URL for this data source."""
         pass
 
-    def file_exists(self, output_dir: Path, output_filename: str) -> bool:
+    @property
+    def download_path(self) -> str:
+        """Return the base directory to store the downloaded files."""
+        return os.getenv(
+            f"DOWNLOAD_DOCUMENTS_PATH/{self.name}",
+            f"../data/data-collector/{self.name}",
+        )
+
+    def download_filepath(self, filename: str) -> str:
+        return os.path.join(self.download_path, filename)
+
+    def create_storage_location(self) -> bool:
+        """
+        Create the storage location where documents will be stored.
+
+        For local filesystem scrapers, this creates a directory.
+        For cloud scrapers, this can create/verify a bucket or prefix.
+
+        Returns:
+            True if storage location was created or already exists, False on error
+        """
+        try:
+            # Get download path from environment variable
+            output_dir = Path(self.download_path)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"{self.name}: created storage directory at {output_dir}")
+            return True
+        except Exception as e:
+            logger.error(
+                f"{self.name}: failed to create storage location at {output_dir}: {e}"
+            )
+            return False
+
+    def file_exists(self, output_filename: str) -> bool:
         """
         Check if a file exists at the specified location.
 
@@ -79,19 +113,18 @@ class Scraper(ABC):
         local filesystem storage.
 
         Args:
-            output_dir: Directory where the file should be located
             output_filename: Name of the file to check
 
         Returns:
             True if the file exists, False otherwise
         """
-        file_path = output_dir / output_filename
+        file_path = Path(self.download_path) / output_filename
         return file_path.exists()
 
     async def store_file(
         self,
         content: Union[str, bytes],
-        file_path: Path,
+        file_name: Path,
         encoding: Optional[str] = "utf-8",
     ) -> bool:
         """
@@ -103,7 +136,8 @@ class Scraper(ABC):
 
         Args:
             content: The file content (string for text files, bytes for binary)
-            file_path: Path where the file should be stored
+            file_name: name where the file should be stored. It will be concatenated
+                to the scraper name as base directory.
             encoding: Character encoding for text files (ignored for bytes). Default: utf-8
 
         Returns:
@@ -111,6 +145,7 @@ class Scraper(ABC):
         """
         try:
             # Ensure parent directory exists
+            file_path = Path(self.download_path) / file_name
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write content based on type
@@ -146,15 +181,12 @@ class Scraper(ABC):
         pass
 
     @abstractmethod
-    async def download_document(
-        self, document: ScrapedDocument, output_dir: Path
-    ) -> DownloadResult:
+    async def download_document(self, document: ScrapedDocument) -> DownloadResult:
         """
         Download a specific document and save it to disk.
 
         Args:
             document: The ScrapedDocument to download
-            output_dir: Directory where files should be saved
 
         Returns:
             DownloadResult with:
