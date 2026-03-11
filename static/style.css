@@ -229,33 +229,44 @@ a {
     border-collapse: collapse;
     margin: 20px 0;
     background: white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e5e5e5;
     border-radius: 4px;
     overflow: hidden;
 }
 
 .documents-table thead {
     background: #f5f5f5;
+    border-bottom: 2px solid #e5e5e5;
 }
 
 .documents-table th,
 .documents-table td {
     padding: 12px;
     text-align: left;
+    border-right: 1px solid #e5e5e5;
+}
+
+.documents-table th:last-child,
+.documents-table td:last-child {
+    border-right: none;
+}
+
+.documents-table tbody tr {
+    transition: background 0.2s ease;
     border-bottom: 1px solid #e5e5e5;
+}
+
+.documents-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.documents-table tbody tr:hover {
+    background: #f9f9f9;
 }
 
 .documents-table th {
     font-weight: 600;
     color: #333;
-}
-
-.documents-table tbody tr {
-    transition: background 0.2s ease;
-}
-
-.documents-table tbody tr:hover {
-    background: #f9f9f9;
 }
 
 /* Pagination */
